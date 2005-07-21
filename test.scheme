@@ -1,0 +1,91 @@
+
+(define (test s f i o)
+  (begin
+    (display s) 
+    (display '_)
+    (display
+      (if (equal? (f i) o)
+        'passed
+        'FAILED
+      )
+    )
+    (newline)
+  )
+)
+
+(test
+  'test1
+  (apply-part map zero?)
+  '(-1 0 1)
+  '(#f #t #f)
+)
+
+(test 
+  'test2
+  (apply-part map factorial) 
+  (range 0 10) 
+  '(1 1 2 6 24 120 720 5040 40320 362880 3628800)
+)
+
+(test
+  'test3
+  (apply-part foldr + 0)
+  (range 1 100)
+  5050
+)
+
+(test
+  'test4
+  (apply-part map (apply-part apply or))
+  '(() (#t) (#f) (#t #f) (#f #t) (#f #f) (#t #t))
+  '(#f #t #f #t #t #f #t)
+)
+
+(test
+  'test5
+  (apply-part map (apply-part apply and))
+  '(() (#t) (#f) (#t #f) (#f #t) (#f #f) (#t #t))
+  '(#t #t #f #f #f #f #t)
+)
+
+
+(test
+  'test6
+  (apply-part map (lambda (x) 
+    (letrec 
+	(
+	(f (id (lambda () g)))
+	(g x)
+	)
+	(f) 
+     ) 
+   ))
+   '(a 1 -6 () '(a . b))
+   '(a 1 -6 () '(a . b))
+)
+
+(letrec ((even?
+          (lambda (n)
+            (if (zero? n)
+                #t
+                (odd? (- n 1)))))
+         (odd?
+          (lambda (n)
+            (if (zero? n)
+                #f
+                (even? (- n 1))))))
+     (test
+       'test7
+        (apply-part map even?)
+       '(0 1 2 3 4 5 6 7 8)
+       '(#t #f #t #f #t #f #t #f #t)
+    )
+) 
+
+(test
+	'test8
+	id
+	(list (+ 3 4) (+ 3) (+) (* 4) (*) (- 3 4) (- 3 4 5) (- 3) (/ 3
+	4 5) (/ 3))
+	'(7 3 0 4 1 -1 -6 -3 0 0)
+)

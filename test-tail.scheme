@@ -1,0 +1,63 @@
+;;; test functions
+
+(define (test-tail n)
+    (if (zero? n)
+      '()
+      (test-tail (- n 1))
+    )
+)
+
+(define (test-tail-display n)
+  (if (zero? n)
+    '()
+    (begin (display n) (newline) (test-tail-display (- n 1)))
+  )
+)
+
+(define (test-non-tail-display n)
+  (if (zero? n)
+    '()
+    (begin (test-non-tail-display (- n 1)) (display n) (newline) )
+  )
+)
+
+(define (infinite-tail x)
+	(begin
+		(display x)
+		(newline)
+		(infinite-tail x)
+	)
+)
+
+(define (test-and-tail n)
+    (if (zero? n)
+      '()
+      (and 1 (test-and-tail (- n 1)))
+    )
+)
+
+(define (test-apply-tail n)
+    (if (zero? n)
+      '()
+      (apply test-apply-tail (- n 1) '())
+    )
+)
+
+(define (fact n)
+	(* n (fact (- n 1))) 
+)
+
+(display 'test_apply_tail_call_)
+(test-apply-tail 100000)
+(display 'passed)
+(newline)
+
+(display 'test_and_tail_call_)
+(test-and-tail 100000)
+(display 'passed)
+(newline)
+
+(display 'test_simple_tail_call_)
+(test-tail 1000000)
+(display 'passed)
+(newline)

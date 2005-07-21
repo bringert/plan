@@ -1,0 +1,562 @@
+/* Copyright (C) 2003 Bjorn Bringert (bjorn@bringert.net)
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+
+options {
+	IGNORE_CASE = true;
+	STATIC = false;
+	DEBUG_PARSER = false;
+}
+
+PARSER_BEGIN(parser)
+
+package parser;
+
+import util.*;
+import abssyn.*;
+
+import java.util.*;
+
+public class parser {
+
+
+       private Expr undefined () {
+	       return new Quote(UnitDatum.UNIT);
+       }      
+
+
+       public Expr letExpr (List bs, Expr body) {
+	      Formals f = new Formals();
+	      ProcedureCall pc = new ProcedureCall(new Lambda(f, body));
+
+	      Iterator it = bs.iterator();
+	      while (it.hasNext()) {
+		    Pair b = (Pair)it.next();
+		    f.addFormal((Identifier)b.fst());
+		    pc.addOperand((Expr)b.snd());
+	      }
+
+	      return pc;
+       }
+
+      public Expr letStarExpr (List bs, Expr body) {
+	     ProcedureCall pc = new ProcedureCall(
+			   new Lambda(new Formals(),body));
+
+	     ListIterator it = bs.listIterator(bs.size());
+	     while (it.hasPrevious()) {
+		   Pair p = (Pair)it.previous();
+		   Formals f = new Formals();
+		   f.addFormal((Identifier)p.fst());
+		   pc = new ProcedureCall(new Lambda(f, pc));
+		   pc.addOperand((Expr)p.snd());
+	     }
+
+	     return pc;
+      }
+
+}
+
+PARSER_END(parser)
+
+/*
+ * Grammar based on: http://www.swiss.ai.mit.edu/~jaffer/r5rs_9.html
+ * Not all features are implemented.
+ */
+
+SKIP:
+{
+	" " | 
+	"\n" | 
+	"\t" | 
+	"\r" | 
+	"\f" | 
+	< COMMENT: ";" (~["\n", "\r"])* >
+}
+
+TOKEN: /* Keywords */
+{
+	< ELSE: "else" > | 
+	< THEN: "=>" > |
+	< DEFINE: "define" > | 
+	< UNQUOTE: "unquote" > | 
+	< UNQUOTE_SPLICING: "unquote-splicing" > |
+	< QUOTE: "quote" > | 
+	< LAMBDA: "lambda" > | 
+	< IF: "if" > | 
+	< SET: "set!" > |
+	< BEGIN: "begin" > | 
+	< COND: "cond" > | 
+	< CASE: "case" > | 
+	< LET: "let" > | 
+	< LET_STAR: "let*" > |
+	< LETREC: "letrec" > | 
+	< DO: "do" > | 
+	< DELAY: "delay" > | 
+	< QUASIQUOTE: "quasiquote" >	
+}
+
+TOKEN: /* Identifiers and literals */
+{
+	< NON_KEYWORD_IDENTIFIER: <INITIAL> (<SUBSEQUENT>)* | <PECULIAR_IDENTIFIER> > |
+	< #INITIAL: <LETTER> | <SPECIAL_INITIAL> > |
+	< #LETTER: ["a"-"z"] > |
+	< #SPECIAL_INITIAL: ["!","$","%","&","*","/",":","<","=",">","?","^","_","~"] > |
+	< #SUBSEQUENT: <INITIAL> | <DIGIT> | <SPECIAL_SUBSEQUENT> > |
+	< #DIGIT: ["0"-"9"] > |
+	< #SPECIAL_SUBSEQUENT: ["+","-",".","@"] > |
+	< #PECULIAR_IDENTIFIER: "+" | "-" > |
+	< NUMBER: <NUM10> > | 
+	< #NUM10: <PREFIX10> <REAL10> > |
+	< #PREFIX10: "" | "#d" > | 
+	< #REAL10: <SIGN> <UREAL10> > |
+	< #SIGN: "" | "+" | "-" > |
+	< #UREAL10: <UINTEGER10> > |
+	< #UINTEGER10: (<DIGIT10>)+  > |
+	< #DIGIT10: <DIGIT> > |
+	< BOOLEAN: "#t" | "#f" > 
+}
+
+
+Identifier Identifier () :
+{
+	Token t;
+	String s;
+}
+{
+	(
+	t=<NON_KEYWORD_IDENTIFIER> 
+	| t=<ELSE> 
+	| t=<THEN> 
+	| t=<DEFINE> 
+	| t=<UNQUOTE> 
+	| t=<UNQUOTE_SPLICING>
+	| t=<QUOTE> 
+	| t=<LAMBDA> 
+	| t=<IF> 
+	| t=<SET> 
+	| t=<BEGIN> 
+	| t=<COND> 
+	| t=<CASE> 
+	| t=<LET> 
+	| t=<LET_STAR> 
+	| t=<LETREC> 
+	| t=<DO> 
+	| t=<DELAY> 
+	| t=<QUASIQUOTE>
+	) { return new Identifier(t.image); }
+}
+
+Identifier Variable () :
+{ 
+	Token t; 
+}
+{
+	t=<NON_KEYWORD_IDENTIFIER> { return new Identifier(t.image); }
+}
+
+BooleanLiteral BooleanLiteral () :
+{
+	Token t;
+}
+{
+	t=<BOOLEAN> 
+	{ return new BooleanLiteral(!t.image.equals("#f")); }
+}
+
+IntegerLiteral NumericLiteral () :
+{
+	Token t;	
+}
+{
+	t=<NUMBER> 
+	{ String s = t.image;
+	  if (s.startsWith("#d")) {
+	     s = s.substring(2); 
+	  }
+	  if (s.startsWith("+")) {
+	     s = s.substring(1);
+	  }
+
+	  return new IntegerLiteral(s); 
+	}
+}
+
+/*
+ * External representations
+ */
+
+Expr Datum () :
+{
+	Expr d;
+}
+{
+	d=SimpleDatum() { return d; }
+  |
+	d=CompoundDatum() { return d; }
+}
+
+Expr SimpleDatum() :
+{ 
+	Expr d;
+}
+{
+	(
+	d=BooleanLiteral()
+  |
+	d=NumericLiteral()
+  |
+	d=Identifier() 
+	) { return d; }
+}
+
+Expr CompoundDatum () :
+{ 
+	Expr d; 
+} 
+{
+	d=List() { return d; }
+	// | Vector() // NOT IMPLEMENTED
+}
+
+Expr List () :
+{
+	Expr d = UnitDatum.UNIT;
+}
+{
+	"(" [ d=ListRest() ] ")" { return d; }
+  |
+	d=Abbreviation() { return d; }
+}
+
+
+Expr ListRest () :
+{
+	Expr head, tail = UnitDatum.UNIT;
+}
+{
+	head=Datum() [ tail=ListRest() | "." tail=Datum() ]
+	{ return new PairDatum(head, tail); }
+}
+
+
+Expr Abbreviation () :
+{
+	Expr d;
+}
+{
+	"'" d=Datum() { return new Quote(d); }
+/*	// NOT IMPLEMENTED
+  | 
+	"`" Datum() 
+  | 
+	"," Datum() 
+  | 
+	",@" Datum()
+*/
+}
+
+
+/*
+ * Expressions
+ */
+
+Expr Expression () :
+{ 
+  Expr e;
+}
+{
+	(
+	e=AtomExpression() 
+  |
+	"(" e=ListExpression() ")"
+	) { return e; }
+}
+
+Expr AtomExpression() :
+{ 
+	Expr e;
+}
+{
+	e = Variable() { return e; }
+  |
+	e = AbbrevQuote() { return e; }
+  |
+	e = SelfEvaluating() { return e; }
+}
+
+Expr AbbrevQuote () :
+{ 
+	Expr d;
+}
+{
+	"'" d=Datum() { return new Quote(d); }
+}
+
+Expr SelfEvaluating () :
+{ 
+	Expr e;
+}
+{
+	(
+	e=BooleanLiteral()
+  |
+	e=NumericLiteral()
+	) { return e; }
+}
+
+Expr ListExpression () :
+{
+	Expr e;
+}
+{
+	(
+	e=Quote() 
+  |
+	e=ProcedureCall() 
+  |
+	e=LambdaExpression() 
+  |
+	e=If() 
+  |	
+	e=Cond()
+  |
+	e=Let()
+  |
+	e=LetStar()
+  |
+	e=Letrec()
+  |
+	"begin" e=Sequence()
+	) { return e; }
+}
+
+Expr Quote () :
+{
+	Expr d;
+}
+{
+	"quote" d=Datum() { return new Quote(d); }
+}
+
+Expr ProcedureCall () :
+{
+	ProcedureCall p;
+	Expr e;
+}
+{
+	e=Expression() { p = new ProcedureCall(e); } 
+	    ( e=Expression() { p.addOperand(e); } )*
+	    { return p; }
+}
+
+Expr LambdaExpression () :
+{
+	Formals f;
+	Expr b;
+}
+{
+	"lambda" f=Formals() b=Body() { return new Lambda(f, b); }
+}
+
+Formals Formals () :
+{ 
+	Formals f = new Formals();
+	Identifier v;
+}
+{
+	(
+	v=Variable() { f.setListFormal(v); } 
+  |
+	"(" [ ( v=Variable() { f.addFormal(v); } )+ 
+	    [ "." v=Variable() { f.setListFormal(v); } ] ] ")"
+	) { return f; }
+}
+
+Expr Body () :
+{
+	Expr e;
+}
+{
+/* Grammar says: (Definition())* Sequence() 
+   But the report says "one or more expressions" */
+
+       e=Sequence() { return e; }
+}
+
+Expr Sequence () :
+{
+	Expr e;
+	Expr s;
+}
+{
+	e=Expression() [ s=Sequence() { e = new Sequence(e, s); }]
+	{ return e; }
+}
+
+Expr If () :
+{
+	Expr t, c, a = undefined();
+}
+{
+	"if" t=Expression() c=Expression() [a=Expression()] 
+	     { return new If(t, c, a); }
+}
+
+Expr Cond () :
+{
+	Expr c;
+}
+{
+	"cond" "(" ( 
+	    c=CondClauses()
+	  | "else" c=Sequence() ")"
+	) 
+	  { return c; }
+}
+
+Expr CondClauses () :
+{
+	Expr t;
+	Expr c = null;
+	Expr rest = undefined();
+}
+{
+	    (
+	      t=Expression() [c=Sequence()]
+	      // | Expression() "=>" Recipient() // NOT IMPLEMENTED 
+	    ) 
+	  ")" [ "(" ( rest=CondClauses() | "else" rest=Sequence() ")" ) ]
+	      { 
+		if (c == null) {
+	          Identifier tmp = new Identifier(".temp");
+		  List b = new LinkedList();
+		  b.add(new Pair(tmp, t));
+		  return letExpr(b, new If(tmp, tmp, rest));
+		} else {
+		  return new If(t, c, rest);  
+	        }
+	      }
+}
+
+Expr Let () :
+{
+	List s;
+	Expr b;
+}
+{
+	"let" "(" s=BindingSpecs() ")" b=Body() 
+	{ return letExpr(s, b); }	
+}
+
+Expr LetStar () :
+{
+	List s;
+	Expr b;
+}
+{
+	"let*" "(" s=BindingSpecs() ")" b=Body() 
+	{ return letStarExpr(s, b); }
+}
+
+Expr Letrec () :
+{
+	List s;
+	Expr b;
+}
+{
+	"letrec" "(" s=BindingSpecs() ")" b=Body() 
+	{ return new Letrec(s, b); }
+}
+
+List BindingSpecs () :
+{
+	List b = new LinkedList();
+	Identifier v;
+	Expr e;
+}
+{
+	( 
+	"(" v=Variable() e=Expression() ")" { b.add(new Pair(v, e)); }
+	)* 
+	{ return b; }
+}
+
+/*
+ * Programs and definitions
+ */
+
+Expr ItemOrEnd () :
+{
+	Expr i;
+}
+{
+	i=CommandOrDefinition() { return i; }
+  |
+	<EOF> { return null; }
+}
+
+Expr CommandOrDefinition () :
+{
+	Expr i; 
+}
+{
+	( 
+	i=AtomExpression() 
+  |
+	"(" ( 
+	i=ListExpression() 
+  | 
+	i=Definition() ) ")"
+	) 
+	{ return i; }
+
+	/* | "(" "begin" (CommandOrDefinition())+ ")" // This is in the
+	grammar, but seems redundant. */
+}
+
+Definition Definition () :
+{ Definition d; }
+{
+	"define" d=DefinitionRest() { return d; }
+//	| "begin" ("(" Definition() ")")*  // NOT IMPLEMENTED 
+}
+
+Definition DefinitionRest () :
+{ 
+	Identifier v;
+	Expr e;
+	Formals f;
+	Expr b;
+}
+{
+	v=Variable() e=Expression() 
+	{ return new Definition(v, e); } 
+  |
+	"(" v=Variable() f=DefFormals() ")" b=Body()
+	{ return new Definition(v, new Lambda(f, b)); }
+}
+
+Formals DefFormals () :
+{ 
+	Formals f = new Formals();
+	Identifier v;
+}
+{
+	( v=Variable() { f.addFormal(v); } )* 
+	[ "." v=Variable() { f.setListFormal(v); } ]
+	{ return f; }
+}

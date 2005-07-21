@@ -1,0 +1,23 @@
+Plan is an interpreter for a subset of Scheme, written in generic
+Java.
+
+
+
+Requirements:
+* JavaCC (http://javacc.dev.java.net/)
+* Java adding generics prototype 
+  (http://developer.java.sun.com/developer/earlyAccess/adding_generics/)
+
+How to build:
+
+Edit Makefile, setting JAVAC to point to a generics-enabled java compiler
+
+Then run:
+
+$ make
+
+How to run:
+
+$ cd src
+$ java plan
+

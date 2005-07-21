@@ -1,0 +1,172 @@
+
+
+
+
+
+;;; list functions
+
+(define (caar x) (car (car x)))
+(define (cadr x) (car (cdr x)))
+(define (cdar x) (cdr (car x)))
+(define (cddr x) (cdr (cdr x)))
+
+(define (length l) 
+  (if (null? l) 0 (+ 1 (length (cdr l))))
+)
+
+
+; tail recursive reverse, taken from CSC-530 Scheme examples
+(define reverse 
+  (lambda (L) 
+    (letrec ((inner-rev 
+      (lambda (L acc) 
+        (if (null? L) 
+	  acc 
+	  (inner-rev (cdr L) (cons (car L) acc))
+	) 
+      ) 
+   )) 
+   (inner-rev L '()) ) 
+  ) 
+)
+
+(define (append . l) 
+  (foldr concat '() l)
+)
+
+(define (concat xs ys) 
+  (if (null? xs)
+    ys
+    (cons (car xs) (concat (cdr xs) ys))
+  )
+)
+
+(define (foldr f a l)
+  (if (null? l)
+    a
+    (f (car l) (foldr f a (cdr l)))
+  )
+)
+
+(define (map f . ls) 
+  (if (null? (car ls))
+    '()
+    (cons (apply f (cars ls)) (apply map f (cdrs ls)))
+  )
+)
+
+(define (cars ls) 
+  (if (null? ls)
+    '()
+    (cons (caar ls) (cars (cdr ls)))
+  )
+)
+
+(define (cdrs ls)
+  (if (null? ls)
+    '()
+    (cons (cdar ls) (cdrs (cdr ls)))
+  )
+)
+
+(define (filter f l)
+  (if (null? l)
+    '()
+    (let 
+      (
+        (x (car l))
+        (xs (filter f (cdr l)))
+      )
+      (if (f x) (cons x xs) xs)
+    )
+  )
+)
+
+;;; boolean functions
+
+(define (not x) (if x #f #t))
+
+(define (or . xs)
+	(cond 
+	      ((null? xs) #f)
+	      ((null? (cdr xs)) (car xs))
+	      ((car xs) (car xs))
+	      (else (apply or (cdr xs)))
+	)
+)
+
+(define (and . xs) 
+	(cond 
+	      ((null? xs) #t)
+	      ((null? (cdr xs)) (car xs))
+	      ((car xs) (apply and (cdr xs)))
+	      (else (car xs))
+        )
+)
+
+
+
+;;; Higher order functions
+
+(define (id x) x)
+
+(define compose
+  (lambda (f g)
+    (lambda args
+      (f (apply g args))
+    )
+  )
+)
+
+(define (composeAll . fs) (foldr compose id fs))
+
+(define (apply-part f . l)
+  (lambda r
+    (apply f (append l r))
+  )
+)
+
+(define (flip f x y)
+  (f y x)
+)
+
+;;; Numeric functions
+
+
+(define (zero? z) (= 0 z))
+(define (positive? x) (> x 0))
+(define (negative? x) (< x 0))
+
+
+(define (max x . l)
+  (foldr (lambda (a b) (if (> a b) a b)) x l)
+)
+
+(define (min x . l)
+  (foldr (lambda (a b) (if (< a b) a b)) x l)
+)
+
+(define (abs x) (if (< x 0) (- x) x))
+
+; tail recursive factorial
+(define (factorial n) 
+  (letrec 
+    (
+      (inner-fact (lambda (n acc) 
+        (if (<= n 0) 
+	  acc 
+	  (inner-fact (- n 1) (* n acc)) 
+	) 
+      ))
+    ) 
+    (inner-fact n 1) 
+  ) 
+)
+
+; generate a list of the numbers n to m
+(define (range n m)
+  (if (> n m)
+    '()
+    (cons n (range (+ n 1) m))
+  )
+)

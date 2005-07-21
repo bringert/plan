@@ -1,0 +1,18 @@
+
+(define (factor x)
+  (let 
+    (
+      (d (car (filter (apply-part (apply-part flip divides) x) (range 2 x))))
+    )
+    (if (= x d)
+      (list d)
+      (cons d (factor (/ x d)))
+    )
+  )
+)
+
+(define (divides d n) 
+  (= (* d (/ n d)) n)
+)
+
+; (filter (apply-part (apply-part flip divides) 3) (range 2 3))
